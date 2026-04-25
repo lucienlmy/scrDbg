@@ -1,5 +1,4 @@
 #include "ScriptExport.hpp"
-#include "core/Process.hpp"
 #include "game/gta/Natives.hpp"
 #include "game/gta/TextLabels.hpp"
 #include "game/rage/Joaat.hpp"
@@ -147,7 +146,7 @@ namespace scrDbgApp::ScriptExport
             if (!program)
                 return;
 
-            const uint32_t block = program.GetGlobalBlockIndex();
+            const uint32_t block = program.GetGlobalBlock();
             const uint32_t count = program.GetGlobalCount();
             if (count == 0)
             {

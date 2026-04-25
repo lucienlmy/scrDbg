@@ -1,5 +1,4 @@
 #include "Scanner.hpp"
-#include "Pointer.hpp"
 
 namespace scrDbgApp
 {

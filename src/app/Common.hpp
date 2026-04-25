@@ -22,6 +22,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include "core/Pointer.hpp"
+using scrDbgApp::Pointer;
+
 namespace scrDbgApp
 {
     extern bool g_IsEnhanced;

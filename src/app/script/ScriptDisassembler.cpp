@@ -1,5 +1,4 @@
 #include "ScriptDisassembler.hpp"
-#include "core/Process.hpp"
 #include "game/gta/Natives.hpp"
 #include "game/gta/TextLabels.hpp"
 #include "game/rage/Joaat.hpp"
@@ -263,7 +262,7 @@ namespace scrDbgApp
             }
             case 'm': // STRING
             {
-                if (stringIndex >= 0 && stringIndex < program.GetStringCount())
+                if (stringIndex >= 0 && stringIndex < program.GetStringsSize())
                 {
                     auto str = program.GetString(stringIndex);
                     auto label = gta::TextLabels::GetTextLabel(RAGE_JOAAT(str));

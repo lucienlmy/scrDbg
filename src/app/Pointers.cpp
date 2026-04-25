@@ -58,7 +58,7 @@ namespace scrDbgApp
             });
 
             scanner.Add("ScriptGlobalBlockCounts", "41 89 9C BC", [this](Pointer ptr) {
-                ScriptGlobalBlockCounts = Process::GetBaseAddress() + ptr.Add(4).Read<int>(); // base + RVA
+                ScriptGlobalBlockCounts = Process::GetBaseAddress() + ptr.Add(4).Get<int32_t>(); // base + RVA
             });
 
             scanner.Add("NativeRegistrationTable", "48 8D 0D ? ? ? ? 48 8B 14 FA E8 ? ? ? ? 48 85 C0 75 0A", [this](Pointer ptr) {

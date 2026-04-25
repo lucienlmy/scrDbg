@@ -1,9 +1,53 @@
 #include "scrProgram.hpp"
 #include "Pointers.hpp"
-#include "core/Process.hpp"
 
 namespace rage
 {
+    uint32_t scrProgram::GetGlobalVersion() const
+    {
+        return m_Base.Add(GLOBAL_VERSION).Get<uint32_t>();
+    }
+
+    uint32_t scrProgram::GetCodeSize() const
+    {
+        return m_Base.Add(CODE_SIZE).Get<uint32_t>();
+    }
+
+    uint32_t scrProgram::GetArgCount() const
+    {
+        return m_Base.Add(ARG_COUNT).Get<uint32_t>();
+    }
+
+    uint32_t scrProgram::GetStaticCount() const
+    {
+        return m_Base.Add(STATIC_COUNT).Get<uint32_t>();
+    }
+
+    uint32_t scrProgram::GetGlobalCount() const
+    {
+        return m_Base.Add(GLOBAL_COUNT_AND_BLOCK).Get<uint32_t>() & 0x3FFFF;
+    }
+
+    uint32_t scrProgram::GetGlobalBlock() const
+    {
+        return m_Base.Add(GLOBAL_COUNT_AND_BLOCK).Get<uint32_t>() >> 0x12;
+    }
+
+    uint32_t scrProgram::GetNativeCount() const
+    {
+        return m_Base.Add(NATIVE_COUNT).Get<uint32_t>();
+    }
+
+    uint32_t scrProgram::GetNameHash() const
+    {
+        return m_Base.Add(NAME_HASH).Get<uint32_t>();
+    }
+
+    uint32_t scrProgram::GetStringsSize() const
+    {
+        return m_Base.Add(STRINGS_SIZE).Get<uint32_t>();
+    }
+
     std::vector<uint8_t> scrProgram::GetFullCode() const
     {
         uint32_t codeSize = GetCodeSize();
@@ -11,76 +55,27 @@ namespace rage
             return {};
 
         std::vector<uint8_t> code(codeSize);
+        uint32_t pageCount = (codeSize + 0x3FFF) >> 14;
 
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, CodeBlocks));
-        uint32_t count = (codeSize + 0x3FFF) >> 14;
-
-        std::vector<uint64_t> ptrs(count);
-        scrDbgApp::Process::ReadRaw(base, ptrs.data(), count * sizeof(uint64_t));
-
-        for (uint32_t i = 0, offset = 0; i < count; ++i)
+        std::vector<uintptr_t> pages(pageCount);
+        m_Base.Add(CODE_PAGES).Deref().GetBuffer(pages.data(), pageCount * sizeof(uintptr_t));
+        for (uint32_t i = 0, offset = 0; i < pageCount; i++)
         {
-            size_t chunk = std::min<size_t>(codeSize - offset, 0x4000);
-            scrDbgApp::Process::ReadRaw(ptrs[i], code.data() + offset, chunk);
-            offset += chunk;
+            size_t pageSize = std::min<size_t>(codeSize - offset, 0x4000);
+            Pointer(pages[i]).GetBuffer(code.data() + offset, pageSize);
+            offset += pageSize;
         }
 
         return code;
     }
 
-    uint8_t scrProgram::GetCode(uint32_t index) const
+    void scrProgram::SetCode(uint32_t index, const std::vector<uint8_t>& bytes) const
     {
-        if (index < GetCodeSize())
-        {
-            uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, CodeBlocks));
-            return scrDbgApp::Process::Read<uint8_t>(scrDbgApp::Process::Read<uint64_t>(base + (index >> 14) * sizeof(uint64_t)) + (index & 0x3FFF));
-        }
+        if (index >= GetCodeSize())
+            return;
 
-        return 0;
-    }
-
-    void scrProgram::SetCode(uint32_t index, uint8_t byte) const
-    {
-        if (index < GetCodeSize())
-        {
-            uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, CodeBlocks));
-            scrDbgApp::Process::Write<uint8_t>(scrDbgApp::Process::Read<uint64_t>(base + (index >> 14) * sizeof(uint64_t)) + (index & 0x3FFF), byte);
-        }
-    }
-
-    uint32_t scrProgram::GetGlobalVersion() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, GlobalVersion));
-    }
-
-    uint32_t scrProgram::GetCodeSize() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, CodeSize));
-    }
-
-    uint32_t scrProgram::GetArgCount() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, ArgCount));
-    }
-
-    uint32_t scrProgram::GetStaticCount() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, StaticCount));
-    }
-
-    uint32_t scrProgram::GetGlobalCount() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, GlobalCountAndBlock)) & 0x3FFFF;
-    }
-
-    uint32_t scrProgram::GetGlobalBlockIndex() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, GlobalCountAndBlock)) >> 0x12;
-    }
-
-    uint32_t scrProgram::GetNativeCount() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, NativeCount));
+        uintptr_t page = m_Base.Add(CODE_PAGES).Deref().GetArray<uintptr_t>(index >> 14);
+        Pointer(page).Add(index & 0x3FFF).SetBuffer(bytes.data(), bytes.size());
     }
 
     uint64_t scrProgram::GetStatic(uint32_t index) const
@@ -88,8 +83,7 @@ namespace rage
         if (index >= GetStaticCount())
             return 0;
 
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, Statics));
-        return scrDbgApp::Process::Read<uint64_t>(base + index * sizeof(uint64_t));
+        return m_Base.Add(STATICS).Deref().GetArray<uint64_t>(index);
     }
 
     uint64_t scrProgram::GetProgramGlobal(uint32_t index) const
@@ -97,12 +91,8 @@ namespace rage
         if (index >= GetGlobalCount())
             return 0;
 
-        int blockIndex = (index >> 0x12) & 0x3F;
-        int _offset = index & 0x3FFFF;
-
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, Globals));
-        uint64_t block = scrDbgApp::Process::Read<uint64_t>(base + blockIndex * sizeof(uint64_t));
-        return scrDbgApp::Process::Read<uint64_t>(block + _offset * sizeof(uint64_t));
+        uintptr_t page = m_Base.Add(GLOBAL_PAGES).Deref().GetArray<uintptr_t>(index >> 14);
+        return Pointer(page).GetArray<uint64_t>(index & 0x3FFF);
     }
 
     uint64_t scrProgram::GetNative(uint32_t index) const
@@ -110,56 +100,31 @@ namespace rage
         if (index >= GetNativeCount())
             return 0;
 
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, Natives));
-        return scrDbgApp::Process::Read<uint64_t>(base + index * sizeof(uint64_t));
-    }
-
-    uint32_t scrProgram::GetHash() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, NameHash));
-    }
-
-    uint32_t scrProgram::GetRefCount() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, RefCount));
+        return m_Base.Add(NATIVES).Deref().GetArray<uint64_t>(index);
     }
 
     std::vector<std::string> scrProgram::GetAllStrings() const
     {
-        uint32_t stringCount = GetStringCount();
-        if (!stringCount)
+        uint32_t stringsSize = GetStringsSize();
+        if (!stringsSize)
             return {};
 
         std::vector<std::string> strings;
-        strings.reserve(stringCount);
+        uint32_t pageCount = (stringsSize + 0x3FFF) >> 14;
 
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, Strings));
-        uint32_t count = (stringCount + 0x3FFF) >> 14;
-
-        std::vector<uint64_t> ptrs(count);
-        scrDbgApp::Process::ReadRaw(base, ptrs.data(), count * sizeof(uint64_t));
-
-        for (uint32_t i = 0; i < count; ++i)
+        std::vector<uintptr_t> pages(pageCount);
+        m_Base.Add(STRING_PAGES).Deref().GetBuffer(pages.data(), pageCount * sizeof(uintptr_t));
+        for (uint32_t i = 0; i < pageCount; i++)
         {
-            uint32_t blockSize = std::min<uint32_t>(stringCount - i * 0x4000, 0x4000);
+            uint32_t pageSize = std::min<uint32_t>(stringsSize - i * 0x4000, 0x4000);
+            std::vector<char> page(pageSize);
+            Pointer(pages[i]).GetBuffer(page.data(), page.size());
 
-            std::vector<char> block(blockSize);
-            scrDbgApp::Process::ReadRaw(ptrs[i], block.data(), block.size());
-
-            size_t j = 0;
-            while (j < block.size() && strings.size() < stringCount)
+            size_t index = 0;
+            while (index < page.size())
             {
-                const char* start = &block[j];
-                size_t len = strnlen(start, block.size() - j);
-
-                if (len == 0)
-                {
-                    ++j;
-                    continue;
-                }
-
-                strings.emplace_back(start, len);
-                j += len + 1;
+                strings.push_back(&page[index]);
+                index += strings.back().size() + 1;
             }
         }
 
@@ -168,33 +133,21 @@ namespace rage
 
     std::string scrProgram::GetString(uint32_t index) const
     {
-        if (index >= GetStringCount())
+        if (index >= GetStringsSize())
             return {};
 
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offsetof(_scrProgram, Strings));
-        uint64_t page = scrDbgApp::Process::Read<uint64_t>(base + (index >> 14) * sizeof(uint64_t));
-        uint64_t addr = page + (index & 0x3FFF);
-
-        std::string str;
-        for (int i = 0; i < 255; ++i) // Max STRING length is 255 in RAGE scripts, at least for GTA V
-        {
-            char c = scrDbgApp::Process::Read<char>(addr + i);
-            if (c == '\0')
-                break;
-            str += c;
-        }
-
-        return str;
+        uintptr_t page = m_Base.Add(STRING_PAGES).Deref().GetArray<uintptr_t>(index >> 14);
+        return Pointer(page).Add(index & 0x3FFF).GetString(255); // Max STRING length is 255 in RAGE scripts, at least for GTA V
     }
 
-    std::vector<uint32_t> scrProgram::FindScriptIndex(const std::string& string) const
+    std::vector<uint32_t> scrProgram::FindStringIndices(const std::string& string) const
     {
         std::vector<uint32_t> result;
 
-        uint32_t count = GetStringCount();
+        uint32_t size = GetStringsSize();
 
         uint32_t index = 0;
-        while (index < count)
+        while (index < size)
         {
             std::string str = GetString(index);
             std::transform(str.begin(), str.end(), str.begin(), ::tolower);
@@ -208,46 +161,35 @@ namespace rage
         return result;
     }
 
-    uint32_t scrProgram::GetStringCount() const
-    {
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offsetof(_scrProgram, StringCount));
-    }
-
     uint64_t scrProgram::GetGlobal(uint32_t index)
     {
-        int blockIndex = (index >> 0x12) & 0x3F;
-        int offset = index & 0x3FFFF;
-
-        uint64_t base = scrDbgApp::g_Pointers.ScriptGlobals.Add(blockIndex * sizeof(uint64_t)).Read<uint64_t>();
-        return scrDbgApp::Process::Read<uint64_t>(base + offset * sizeof(uint64_t));
+        uintptr_t block = scrDbgApp::g_Pointers.ScriptGlobals.GetArray<uintptr_t>((index >> 0x12) & 0x3F);
+        return Pointer(block).GetArray<uint64_t>(index & 0x3FFFF);
     }
 
     void scrProgram::SetGlobal(uint32_t index, uint64_t value)
     {
-        int blockIndex = (index >> 0x12) & 0x3F;
-        int offset = index & 0x3FFFF;
-
-        uint64_t base = scrDbgApp::g_Pointers.ScriptGlobals.Add(blockIndex * sizeof(uint64_t)).Read<uint64_t>();
-        scrDbgApp::Process::Write<uint64_t>(base + offset * sizeof(uint64_t), value);
+        uintptr_t block = scrDbgApp::g_Pointers.ScriptGlobals.GetArray<uintptr_t>((index >> 0x12) & 0x3F);
+        Pointer(block).SetArray<uint64_t>(index & 0x3FFFF, value);
     }
 
-    int scrProgram::GetGlobalBlockCount(uint32_t block)
+    uint32_t scrProgram::GetGlobalBlockCount(uint32_t block)
     {
-        return scrDbgApp::g_Pointers.ScriptGlobalBlockCounts.Add(block * sizeof(int)).Read<int>();
+        return scrDbgApp::g_Pointers.ScriptGlobalBlockCounts.GetArray<uint32_t>(block);
     }
 
     scrProgram scrProgram::GetProgram(uint32_t hash)
     {
         if (!hash)
-            return scrProgram();
+            return {};
 
-        for (int i = 0; i < 176; i++)
+        for (uint32_t i = 0; i < 176; i++)
         {
-            scrProgram program(scrDbgApp::Process::Read<uint64_t>(scrDbgApp::g_Pointers.ScriptPrograms + i * sizeof(uint64_t)));
-            if (program.GetHash() == hash)
+            scrProgram program(scrDbgApp::g_Pointers.ScriptPrograms.GetArray<uintptr_t>(i));
+            if (program.GetNameHash() == hash)
                 return program;
         }
 
-        return scrProgram();
+        return {};
     }
 }

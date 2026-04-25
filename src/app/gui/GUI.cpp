@@ -3,7 +3,6 @@
 #include "ScriptGlobals.hpp"
 #include "ScriptStatics.hpp"
 #include "ScriptThreads.hpp"
-#include "core/Process.hpp"
 #include "scrDbg.h"
 #include "util/Misc.hpp"
 #include <QVBoxLayout>

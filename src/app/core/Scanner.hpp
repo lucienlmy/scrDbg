@@ -2,8 +2,6 @@
 
 namespace scrDbgApp
 {
-    class Pointer;
-
     class Scanner
     {
     public:

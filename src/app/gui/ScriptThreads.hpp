@@ -75,7 +75,7 @@ namespace scrDbgApp
         QLabel* m_GlobalCount;
         QLabel* m_GlobalBlock;
         QLabel* m_NativeCount;
-        QLabel* m_StringCount;
+        QLabel* m_StringsSize;
         QComboBox* m_ScriptNames;
         QPushButton* m_TogglePauseScript;
         QPushButton* m_KillScript;

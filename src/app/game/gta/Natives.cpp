@@ -12,7 +12,7 @@ namespace gta::Natives
     // TO-DO: Some natives (especially nullsubs) share the same handler.
     // This makes it impossible to determine which native was actually called.
     // Change this function to return all hashes associated with the handler, rather than stopping at the first match. This applies to the code in scrDbgLib as well.
-    uint64_t GetHashByHandler(uint64_t handler)
+    uint64_t GetHashByHandler(uintptr_t handler)
     {
         if (!scrDbgApp::g_Pointers.NativeRegistrationTable || !handler)
             return 0;
@@ -20,11 +20,11 @@ namespace gta::Natives
         uint8_t buffer[0xC8]{}; // Enough to read it all I guess (scrNativeRegistration + hashes)
         for (int bucket = 0; bucket < 256; ++bucket)
         {
-            uint64_t registration = scrDbgApp::Process::Read<uint64_t>(scrDbgApp::g_Pointers.NativeRegistrationTable + 8ULL * bucket);
+            uintptr_t registration = scrDbgApp::g_Pointers.NativeRegistrationTable.GetArray<uintptr_t>(bucket);
 
             while (registration)
             {
-                if (!scrDbgApp::Process::ReadRaw(registration, buffer, sizeof(buffer)))
+                if (!Pointer(registration).GetBuffer(buffer, sizeof(buffer)))
                     break;
 
                 uint32_t numEntries1 = *reinterpret_cast<uint32_t*>(buffer + 0x48);
@@ -34,16 +34,16 @@ namespace gta::Natives
                 if (numEntries > 7)
                     numEntries = 7;
 
-                auto handlers = reinterpret_cast<uint64_t*>(buffer + 0x10);
+                auto handlers = reinterpret_cast<uintptr_t*>(buffer + 0x10);
                 for (uint32_t j = 0; j < numEntries; ++j)
                 {
                     if (handlers[j] == handler)
                     {
-                        uint64_t addr = registration + 0x54 + 16ULL * j;
+                        uintptr_t addr = registration + 0x54 + 16ULL * j;
 
-                        uint32_t key = static_cast<uint32_t>(addr) ^ scrDbgApp::Process::Read<uint32_t>(addr + 8);
-                        uint32_t low = key ^ scrDbgApp::Process::Read<uint32_t>(addr + 0);
-                        uint32_t high = key ^ scrDbgApp::Process::Read<uint32_t>(addr + 4);
+                        uint32_t key = static_cast<uint32_t>(addr) ^ Pointer(addr).Add(8).Get<uint32_t>();
+                        uint32_t low = key ^ Pointer(addr).Add(0).Get<uint32_t>();
+                        uint32_t high = key ^ Pointer(addr).Add(4).Get<uint32_t>();
                         return (static_cast<uint64_t>(high) << 32) | low;
                     }
                 }
@@ -58,9 +58,9 @@ namespace gta::Natives
         return 0;
     }
 
-    std::unordered_map<uint64_t, uint64_t> GetAll()
+    std::unordered_map<uint64_t, uintptr_t> GetAll()
     {
-        std::unordered_map<uint64_t, uint64_t> result;
+        std::unordered_map<uint64_t, uintptr_t> result;
 
         if (!scrDbgApp::g_Pointers.NativeRegistrationTable)
             return result;
@@ -69,11 +69,11 @@ namespace gta::Natives
 
         for (int bucket = 0; bucket < 256; ++bucket)
         {
-            uint64_t registration = scrDbgApp::Process::Read<uint64_t>(scrDbgApp::g_Pointers.NativeRegistrationTable + 8ULL * bucket);
+            uintptr_t registration = scrDbgApp::g_Pointers.NativeRegistrationTable.GetArray<uintptr_t>(bucket);
 
             while (registration)
             {
-                if (!scrDbgApp::Process::ReadRaw(registration, buffer, sizeof(buffer)))
+                if (!Pointer(registration).GetBuffer(buffer, sizeof(buffer)))
                     break;
 
                 uint32_t numEntries1 = *reinterpret_cast<uint32_t*>(buffer + 0x48);
@@ -83,15 +83,15 @@ namespace gta::Natives
                 if (numEntries > 7)
                     numEntries = 7;
 
-                auto handlers = reinterpret_cast<uint64_t*>(buffer + 0x10);
+                auto handlers = reinterpret_cast<uintptr_t*>(buffer + 0x10);
                 for (uint32_t j = 0; j < numEntries; ++j)
                 {
-                    uint64_t handler = handlers[j];
-                    uint64_t addr = registration + 0x54 + 16ULL * j;
+                    uintptr_t handler = handlers[j];
+                    uintptr_t addr = registration + 0x54 + 16ULL * j;
 
-                    uint32_t key = static_cast<uint32_t>(addr) ^ scrDbgApp::Process::Read<uint32_t>(addr + 8);
-                    uint32_t low = key ^ scrDbgApp::Process::Read<uint32_t>(addr + 0);
-                    uint32_t high = key ^ scrDbgApp::Process::Read<uint32_t>(addr + 4);
+                    uint32_t key = static_cast<uint32_t>(addr) ^ Pointer(addr).Add(8).Get<uint32_t>();
+                    uint32_t low = key ^ Pointer(addr).Add(0).Get<uint32_t>();
+                    uint32_t high = key ^ Pointer(addr).Add(4).Get<uint32_t>();
                     uint64_t hash = (static_cast<uint64_t>(high) << 32) | low;
 
                     result[hash] = handler;

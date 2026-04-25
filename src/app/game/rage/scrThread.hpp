@@ -20,103 +20,68 @@ namespace rage
 
     class scrThread
     {
-        struct _scrThreadLegacy
-        {
-            char VTablePtr[0x08];
-            uint32_t ThreadId;
-            uint32_t Program;
-            uint32_t State;
-            uint32_t ProgramCounter;
-            uint32_t FramePointer;
-            uint32_t StackPointer;
-            float TimerA;
-            float TimerB;
-            float WaitTimer;
-            char Pad1[0x2C];
-            uint32_t StackSize;
-            uint32_t CatchProgramCounter;
-            uint32_t CatchFramePointer;
-            uint32_t CatchStackPointer;
-            uint32_t Priority;
-            uint8_t CallDepth;
-            uint32_t CallStack[16];
-            uint64_t* Stack;
-            char Pad2[0x04];
-            uint32_t ArgSize;
-            uint32_t ArgLoc;
-            char Pad3[0x04];
-            const char* ErrorMessage;
-            uint32_t ScriptHash;
-            char ScriptName[64];
-        };
-        static_assert(sizeof(_scrThreadLegacy) == 0x118);
-
-        struct _scrThreadEnhanced
-        {
-            char VTablePtr[0x08];
-            uint32_t ThreadId;
-            uint64_t Program;
-            uint32_t State;
-            uint32_t ProgramCounter;
-            uint32_t FramePointer;
-            uint32_t StackPointer;
-            float TimerA;
-            float TimerB;
-            float WaitTimer;
-            char Pad1[0x2C];
-            uint32_t StackSize;
-            uint32_t CatchProgramCounter;
-            uint32_t CatchFramePointer;
-            uint32_t CatchStackPointer;
-            uint32_t Priority;
-            uint8_t CallDepth;
-            uint32_t CallStack[16];
-            uint64_t* Stack;
-            char Pad2[0x04];
-            uint32_t ArgSize;
-            uint32_t ArgLoc;
-            char Pad3[0x04];
-            char ErrorMessage[128];
-            uint32_t ScriptHash;
-            char ScriptName[64];
-        };
-        static_assert(sizeof(_scrThreadEnhanced) == 0x198);
-
     public:
-        scrThread(uint64_t address = 0)
-            : m_Address(address)
+        scrThread(uintptr_t base = 0)
+            : m_Base(base)
         {
         }
 
         uint32_t GetId() const;
-        uint32_t GetProgram() const;
+        uint32_t GetProgramHash() const;
         scrThreadState GetState() const;
         void SetState(scrThreadState state) const;
         uint32_t GetProgramCounter() const;
         uint32_t GetFramePointer() const;
         uint32_t GetStackPointer() const;
-        float GetTimerA() const;
-        float GetTimerB() const;
-        float GetWaitTimer() const;
         uint32_t GetStackSize() const;
         scrThreadPriority GetPriority() const;
         uint8_t GetCallDepth() const;
         uint32_t GetCallStack(uint32_t index) const;
-        uint64_t GetStack(uint64_t index) const;
-        void SetStack(uint64_t index, uint64_t value) const;
-        std::string GetErrorMessage() const;
-        uint32_t GetHash() const;
-        std::string GetName() const;
+        uint64_t GetStack(uint32_t index) const;
+        void SetStack(uint32_t index, uint64_t value) const;
+        std::string GetExitReason() const;
+        uint32_t GetScriptHash() const;
+        std::string GetScriptName() const;
 
         static std::vector<scrThread> GetThreads();
         static scrThread GetThread(uint32_t hash);
 
-        operator bool()
+        operator bool() const
         {
-            return m_Address != 0;
+            return m_Base != 0;
         }
 
     private:
-        uint64_t m_Address;
+        static constexpr size_t ID_GEN8 = 0x08;
+        static constexpr size_t PROGRAM_HASH_GEN8 = 0x0C;
+        static constexpr size_t STATE_GEN8 = 0x10;
+        static constexpr size_t PROGRAM_COUNTER_GEN8 = 0x14;
+        static constexpr size_t FRAME_POINTER_GEN8 = 0x18;
+        static constexpr size_t STACK_POINTER_GEN8 = 0x1C;
+        static constexpr size_t STACK_SIZE_GEN8 = 0x58;
+        static constexpr size_t PRIORITY_GEN8 = 0x68;
+        static constexpr size_t CALL_DEPTH_GEN8 = 0x6C;
+        static constexpr size_t CALL_STACK_GEN8 = 0x70;
+        static constexpr size_t STACK_GEN8 = 0xB0;
+        static constexpr size_t EXIT_REASON_GEN8 = 0xC8;
+        static constexpr size_t SCRIPT_HASH_GEN8 = 0xD0;
+        static constexpr size_t SCRIPT_NAME_GEN8 = 0xD4;
+
+        static constexpr size_t ID_GEN9 = 0x08;
+        static constexpr size_t PROGRAM_HASH_GEN9 = 0x10;
+        static constexpr size_t STATE_GEN9 = 0x18;
+        static constexpr size_t PROGRAM_COUNTER_GEN9 = 0x1C;
+        static constexpr size_t FRAME_POINTER_GEN9 = 0x20;
+        static constexpr size_t STACK_POINTER_GEN9 = 0x24;
+        static constexpr size_t STACK_SIZE_GEN9 = 0x60;
+        static constexpr size_t PRIORITY_GEN9 = 0x70;
+        static constexpr size_t CALL_DEPTH_GEN9 = 0x74;
+        static constexpr size_t CALL_STACK_GEN9 = 0x78;
+        static constexpr size_t STACK_GEN9 = 0xB8;
+        static constexpr size_t EXIT_REASON_GEN9 = 0xD0;
+        static constexpr size_t SCRIPT_HASH_GEN9 = 0x150;
+        static constexpr size_t SCRIPT_NAME_GEN9 = 0x154;
+
+        Pointer m_Base;
     };
 }

@@ -1,173 +1,107 @@
 #include "scrThread.hpp"
 #include "Pointers.hpp"
-#include "core/Process.hpp"
 
 namespace rage
 {
     uint32_t scrThread::GetId() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, ThreadId) : offsetof(_scrThreadLegacy, ThreadId);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? ID_GEN9 : ID_GEN8).Get<uint32_t>();
     }
 
-    uint32_t scrThread::GetProgram() const
+    uint32_t scrThread::GetProgramHash() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, Program) : offsetof(_scrThreadLegacy, Program);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? PROGRAM_HASH_GEN9 : PROGRAM_HASH_GEN8).Get<uint32_t>();
     }
 
     scrThreadState scrThread::GetState() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, State) : offsetof(_scrThreadLegacy, State);
-        return scrDbgApp::Process::Read<scrThreadState>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? STATE_GEN9 : STATE_GEN8).Get<scrThreadState>();
     }
 
     void scrThread::SetState(scrThreadState state) const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, State) : offsetof(_scrThreadLegacy, State);
-        scrDbgApp::Process::Write<scrThreadState>(m_Address + offset, state);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? STATE_GEN9 : STATE_GEN8).Set<scrThreadState>(state);
     }
 
     uint32_t scrThread::GetProgramCounter() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, ProgramCounter) : offsetof(_scrThreadLegacy, ProgramCounter);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? PROGRAM_COUNTER_GEN9 : PROGRAM_COUNTER_GEN8).Get<uint32_t>();
     }
 
     uint32_t scrThread::GetFramePointer() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, FramePointer) : offsetof(_scrThreadLegacy, FramePointer);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? FRAME_POINTER_GEN9 : FRAME_POINTER_GEN8).Get<uint32_t>();
     }
 
     uint32_t scrThread::GetStackPointer() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, StackPointer) : offsetof(_scrThreadLegacy, StackPointer);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset);
-    }
-
-    float scrThread::GetTimerA() const
-    {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, TimerA) : offsetof(_scrThreadLegacy, TimerA);
-        return scrDbgApp::Process::Read<float>(m_Address + offset);
-    }
-
-    float scrThread::GetTimerB() const
-    {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, TimerB) : offsetof(_scrThreadLegacy, TimerB);
-        return scrDbgApp::Process::Read<float>(m_Address + offset);
-    }
-
-    float scrThread::GetWaitTimer() const
-    {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, WaitTimer) : offsetof(_scrThreadLegacy, WaitTimer);
-        return scrDbgApp::Process::Read<float>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? STACK_POINTER_GEN9 : STACK_POINTER_GEN8).Get<uint32_t>();
     }
 
     uint32_t scrThread::GetStackSize() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, StackSize) : offsetof(_scrThreadLegacy, StackSize);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? STACK_SIZE_GEN9 : STACK_SIZE_GEN8).Get<uint32_t>();
     }
 
     scrThreadPriority scrThread::GetPriority() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, Priority) : offsetof(_scrThreadLegacy, Priority);
-        return scrDbgApp::Process::Read<scrThreadPriority>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? PRIORITY_GEN9 : PRIORITY_GEN8).Get<scrThreadPriority>();
     }
 
     uint8_t scrThread::GetCallDepth() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, CallDepth) : offsetof(_scrThreadLegacy, CallDepth);
-        return scrDbgApp::Process::Read<uint8_t>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? CALL_DEPTH_GEN9 : CALL_DEPTH_GEN8).Get<uint8_t>();
     }
 
     uint32_t scrThread::GetCallStack(uint32_t index) const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, CallStack) : offsetof(_scrThreadLegacy, CallStack);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset + index * sizeof(uint32_t));
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? CALL_STACK_GEN9 : CALL_STACK_GEN8).GetArray<uint32_t>(index);
     }
 
-    uint64_t scrThread::GetStack(uint64_t index) const
+    uint64_t scrThread::GetStack(uint32_t index) const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, Stack) : offsetof(_scrThreadLegacy, Stack);
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offset);
-        return scrDbgApp::Process::Read<uint64_t>(base + index * sizeof(uint64_t));
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? STACK_GEN9 : STACK_GEN8).Deref().GetArray<uint64_t>(index);
     }
 
-    void scrThread::SetStack(uint64_t index, uint64_t value) const
+    void scrThread::SetStack(uint32_t index, uint64_t value) const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, Stack) : offsetof(_scrThreadLegacy, Stack);
-        uint64_t base = scrDbgApp::Process::Read<uint64_t>(m_Address + offset);
-        scrDbgApp::Process::Write<uint64_t>(base + index * sizeof(uint64_t), value);
+        m_Base.Add(scrDbgApp::g_IsEnhanced ? STACK_GEN9 : STACK_GEN8).Deref().SetArray<uint64_t>(index, value);
     }
 
-    std::string scrThread::GetErrorMessage() const
+    std::string scrThread::GetExitReason() const
     {
-        std::string message;
-
         if (scrDbgApp::g_IsEnhanced)
         {
-            size_t offset = offsetof(_scrThreadEnhanced, ErrorMessage);
-            for (size_t i = 0; i < 128; i++)
-            {
-                char c = scrDbgApp::Process::Read<char>(m_Address + offset + i);
-                if (!c)
-                    break;
-                message.push_back(c);
-            }
-        }
-        else
-        {
-            size_t offset = offsetof(_scrThreadLegacy, ErrorMessage);
-            uintptr_t ptr = scrDbgApp::Process::Read<uintptr_t>(m_Address + offset);
-            if (!ptr)
-                return message;
-
-            for (size_t i = 0; i < 128; i++)
-            {
-                char c = scrDbgApp::Process::Read<char>(ptr + i);
-                if (!c)
-                    break;
-                message.push_back(c);
-            }
+            char buffer[128];
+            m_Base.Add(scrDbgApp::g_IsEnhanced ? EXIT_REASON_GEN9 : EXIT_REASON_GEN8).GetBuffer(buffer, 128);
+            return std::string(buffer);
         }
 
-        return message;
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? EXIT_REASON_GEN9 : EXIT_REASON_GEN8).GetString(128);
     }
 
-    uint32_t scrThread::GetHash() const
+    uint32_t scrThread::GetScriptHash() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, ScriptHash) : offsetof(_scrThreadLegacy, ScriptHash);
-        return scrDbgApp::Process::Read<uint32_t>(m_Address + offset);
+        return m_Base.Add(scrDbgApp::g_IsEnhanced ? SCRIPT_HASH_GEN9 : SCRIPT_HASH_GEN8).Get<uint32_t>();
     }
 
-    std::string scrThread::GetName() const
+    std::string scrThread::GetScriptName() const
     {
-        size_t offset = scrDbgApp::g_IsEnhanced ? offsetof(_scrThreadEnhanced, ScriptName) : offsetof(_scrThreadLegacy, ScriptName);
-
-        std::string name;
-        for (size_t i = 0; i < 64; i++)
-        {
-            char c = scrDbgApp::Process::Read<char>(m_Address + offset + i);
-            if (!c)
-                break;
-            name.push_back(c);
-        }
-
-        return name;
+        char buffer[64];
+        m_Base.Add(scrDbgApp::g_IsEnhanced ? SCRIPT_NAME_GEN9 : SCRIPT_HASH_GEN8).GetBuffer(buffer, 64);
+        return std::string(buffer);
     }
 
     std::vector<scrThread> scrThread::GetThreads()
     {
         std::vector<scrThread> threads;
 
-        uint64_t base = scrDbgApp::g_Pointers.ScriptThreads.Read<uint64_t>();
-        uint16_t count = scrDbgApp::g_Pointers.ScriptThreads.Add(10).Read<uint16_t>();
+        auto base = scrDbgApp::g_Pointers.ScriptThreads.Deref();
+        uint16_t count = scrDbgApp::g_Pointers.ScriptThreads.Add(10).Get<uint16_t>();
 
         for (uint16_t i = 0; i < count; ++i)
         {
-            scrThread thread(scrDbgApp::Process::Read<uint64_t>(base + i * sizeof(uint64_t)));
+            scrThread thread(base.GetArray<uintptr_t>(i));
             threads.push_back(thread);
         }
 
@@ -177,18 +111,14 @@ namespace rage
     scrThread scrThread::GetThread(uint32_t hash)
     {
         if (!hash)
-            return scrThread();
+            return {};
 
-        uint64_t base = scrDbgApp::g_Pointers.ScriptThreads.Read<uint64_t>();
-        uint16_t count = scrDbgApp::g_Pointers.ScriptThreads.Add(10).Read<uint16_t>();
-
-        for (int i = 0; i < count; i++)
+        for (const auto& thread : GetThreads())
         {
-            scrThread thread(scrDbgApp::Process::Read<uint64_t>(base + i * sizeof(uint64_t)));
-            if (thread.GetHash() == hash)
+            if (thread.GetScriptHash() == hash)
                 return thread;
         }
 
-        return scrThread();
+        return {};
     }
 }

@@ -84,9 +84,9 @@ namespace scrDbgApp
         bool ReadRawImpl(uintptr_t base, void* value, size_t size);
         bool WriteRawImpl(uintptr_t base, const void* value, size_t size);
 
-        HANDLE m_Handle;
-        uintptr_t m_BaseAddress;
-        size_t m_Size;
-        std::string m_Name;
+        HANDLE m_Handle = INVALID_HANDLE_VALUE;
+        uintptr_t m_BaseAddress = 0;
+        size_t m_Size = 0;
+        std::string m_Name = "";
     };
 }

@@ -93,10 +93,10 @@ namespace scrDbgApp
         m_NativeCount = new QLabel("Native Count: 0");
         m_NativeCount->setToolTip("Number of native commands that this script program uses.");
 
-        m_StringCount = new QLabel("String Count: 0");
-        m_StringCount->setToolTip("Total size, in bytes, of all string literals defined in this script program.");
+        m_StringsSize = new QLabel("Strings Size: 0");
+        m_StringsSize->setToolTip("Total size, in bytes, of all string literals defined in this script program.");
 
-        QVector<QLabel*> rightLabels = {m_GlobalVersion, m_CodeSize, m_ArgCount, m_StaticCount, m_GlobalCount, m_GlobalBlock, m_NativeCount, m_StringCount};
+        QVector<QLabel*> rightLabels = {m_GlobalVersion, m_CodeSize, m_ArgCount, m_StaticCount, m_GlobalCount, m_GlobalBlock, m_NativeCount, m_StringsSize};
         QVBoxLayout* rightLayout = new QVBoxLayout();
         for (auto* lbl : rightLabels)
             rightLayout->addWidget(lbl);
@@ -364,14 +364,14 @@ namespace scrDbgApp
 
         uint32_t id = thread.GetId();
 
-        m_Program->setText(QString("Program: %1").arg(thread.GetProgram()));
+        m_Program->setText(QString("Program: %1").arg(thread.GetProgramHash()));
         m_ThreadId->setText(QString("Thread ID: %1").arg(id));
         m_ProgramCounter->setText(QString("Program Counter: 0x%1").arg(QString::number(thread.GetProgramCounter(), 16).toUpper()));
         m_FramePointer->setText(QString("Frame Pointer: 0x%1").arg(QString::number(thread.GetFramePointer(), 16).toUpper()));
         m_StackPointer->setText(QString("Stack Pointer: 0x%1").arg(QString::number(thread.GetStackPointer(), 16).toUpper()));
         m_StackSize->setText(QString("Stack Size: %1").arg(thread.GetStackSize()));
 
-        auto program = rage::scrProgram::GetProgram(thread.GetProgram());
+        auto program = rage::scrProgram::GetProgram(thread.GetProgramHash());
         if (!program)
             return;
 
@@ -380,9 +380,9 @@ namespace scrDbgApp
         m_ArgCount->setText(QString("Arg Count: %1").arg(program.GetArgCount()));
         m_StaticCount->setText(QString("Static Count: %1").arg(program.GetStaticCount()));
         m_GlobalCount->setText(QString("Global Count: %1").arg(program.GetGlobalCount()));
-        m_GlobalBlock->setText(QString("Global Block: %1").arg(program.GetGlobalBlockIndex()));
+        m_GlobalBlock->setText(QString("Global Block: %1").arg(program.GetGlobalBlock()));
         m_NativeCount->setText(QString("Native Count: %1").arg(program.GetNativeCount()));
-        m_StringCount->setText(QString("String Count: %1").arg(program.GetStringCount()));
+        m_StringsSize->setText(QString("String Size: %1").arg(program.GetStringsSize()));
 
         if (m_LastThreadId != id)
         {
@@ -401,7 +401,7 @@ namespace scrDbgApp
             if (t.GetState() == rage::scrThreadState::KILLED || t.GetStackSize() == 0)
                 continue;
 
-            std::string name = t.GetName();
+            std::string name = t.GetScriptName();
             if (!name.empty())
                 aliveScripts.push_back(name);
         }
@@ -478,7 +478,7 @@ namespace scrDbgApp
         if (auto thread = rage::scrThread::GetThread(GetCurrentScriptHash()))
         {
             thread.SetState(rage::scrThreadState::KILLED);
-            QMessageBox::information(this, "Kill Script", QString("Exit Reason: %1").arg(thread.GetErrorMessage().c_str()));
+            QMessageBox::information(this, "Kill Script", QString("Exit Reason: %1").arg(thread.GetExitReason().c_str()));
         }
     }
 
@@ -850,8 +850,9 @@ namespace scrDbgApp
     {
         uint32_t pc = m_Layout->GetInstruction(index.row()).Pc;
         uint32_t size = ScriptHelpers::GetInstructionSize(m_Layout->GetCode(), pc);
-        for (uint32_t i = 0; i < size; ++i)
-            m_Layout->GetProgram().SetCode(pc + i, rage::scrOpcode::NOP);
+
+        std::vector<std::uint8_t> patch(size, rage::scrOpcode::NOP);
+        m_Layout->GetProgram().SetCode(pc, patch);
 
         m_Layout->Refresh();
         static_cast<DisassemblyModel*>(m_Disassembly->model())->layoutChanged();
@@ -891,18 +892,18 @@ namespace scrDbgApp
         if (newBytes.size() < instrSize)
             fillWithNops = QMessageBox::question(this, "Fill Remaining?", QString("You entered %1 of %2 bytes.\nFill remaining %3 bytes with NOPs?").arg(newBytes.size()).arg(instrSize).arg(instrSize - newBytes.size()), QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
 
+        std::vector<uint8_t> patch;
         for (int i = 0; i < instrSize; i++)
         {
-            uint8_t value;
             if (i < newBytes.size())
-                value = static_cast<uint8_t>(newBytes[i]);
+                patch.push_back(static_cast<uint8_t>(newBytes[i]));
             else if (fillWithNops)
-                value = rage::scrOpcode::NOP;
+                patch.push_back(rage::scrOpcode::NOP);
             else
-                continue; // Leave as is
-
-            m_Layout->GetProgram().SetCode(pc + i, value);
+                break; // Leave as is
         }
+
+        m_Layout->GetProgram().SetCode(pc, patch);
 
         m_Layout->Refresh();
         static_cast<DisassemblyModel*>(m_Disassembly->model())->layoutChanged();

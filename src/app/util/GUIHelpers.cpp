@@ -153,8 +153,8 @@ namespace scrDbgApp::GUIHelpers
         std::string value = input.toStdString();
         std::transform(value.begin(), value.end(), value.begin(), ::tolower);
 
-        auto indexes = program.FindScriptIndex(value);
-        if (indexes.empty())
+        auto indices = program.FindStringIndices(value);
+        if (indices.empty())
             return result;
 
         auto buildNormal = [&](uint32_t index) {
@@ -227,7 +227,7 @@ namespace scrDbgApp::GUIHelpers
         };
 
         // Build all pattern variants
-        for (uint32_t idx : indexes)
+        for (uint32_t idx : indices)
         {
             result.push_back(buildNormal(idx));
 

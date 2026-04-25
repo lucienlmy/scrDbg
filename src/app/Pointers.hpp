@@ -1,5 +1,4 @@
 #pragma once
-#include "core/Pointer.hpp"
 
 namespace scrDbgApp
 {

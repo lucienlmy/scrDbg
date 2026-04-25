@@ -17,7 +17,7 @@ namespace scrDbgApp
         m_Functions.clear();
 
         m_Code = m_Program.GetFullCode();
-        m_Hash = m_Program.GetHash();
+        m_Hash = m_Program.GetNameHash();
 
         int strIndex = -1;
         int funcIndex = -1;
