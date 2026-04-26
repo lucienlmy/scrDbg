@@ -15,6 +15,25 @@
 
 namespace rage
 {
+    static std::string FormatNativeTypes(rage::scrValue value, scrDbgShared::NativesBin::NativeTypes type)
+    {
+        switch (type)
+        {
+        case scrDbgShared::NativesBin::NativeTypes::INT:
+            return std::to_string(value.Int);
+        case scrDbgShared::NativesBin::NativeTypes::BOOL:
+            return value.Int ? "TRUE" : "FALSE";
+        case scrDbgShared::NativesBin::NativeTypes::FLOAT:
+            return std::to_string(value.Float);
+        case scrDbgShared::NativesBin::NativeTypes::STRING:
+            return value.String ? "\"" + std::string(value.String) + "\"" : "NULL";
+        case scrDbgShared::NativesBin::NativeTypes::REFERENCE:
+            return "0x" + std::to_string(reinterpret_cast<uintptr_t>(value.Reference));
+        }
+
+        return std::to_string(value.Any);
+    }
+
     scrThread* scrThread::GetCurrentThread()
     {
         return *reinterpret_cast<scrThread**>(*reinterpret_cast<uintptr_t*>(__readgsqword(0x58)) + (scrDbgLib::g_IsEnhanced ? 0x7A0 : 0x2A50));
@@ -394,41 +413,58 @@ namespace rage
             *context_FramePointer = static_cast<int32_t>(framePtr - stack);
 
             scrNativeCallContext ctx(retCount ? &stack[*context_StackPointer - argCount] : nullptr, argCount, &stack[*context_StackPointer - argCount]);
-            (*handler)(&ctx);
 
-            if (scrDbgLib::ScriptLogger::ShouldLog(scrDbgLib::ScriptLogger::LogType::LOG_TYPE_NATIVE_CALLS, *context_ProgramHash))
+            uint64_t hash{};
+            std::string_view name{};
+            std::string argsStr{};
+            std::string retsStr{};
+            bool shouldLog = scrDbgLib::ScriptLogger::ShouldLog(scrDbgLib::ScriptLogger::LogType::LOG_TYPE_NATIVE_CALLS, *context_ProgramHash);
+
+            // log args before calling the native because rets will be written to the same stack slot
+            if (shouldLog)
             {
-                auto hash = scrDbgLib::g_Pointers.NativeRegistrationTable->GetHashByHandler(handler);
-                auto name = scrDbgShared::NativesBin::GetNameByHash(hash);
+                // cache these here so we can use them when when logging rets as well
+                hash = scrDbgLib::g_Pointers.NativeRegistrationTable->GetHashByHandler(handler);
+                name = scrDbgShared::NativesBin::GetNameByHash(hash);
 
-                std::string argsStr = "";
-                if (argCount > 0 && ctx.m_Args)
+                auto args = scrDbgShared::NativesBin::GetArgsByHash(hash);
+                if (argCount > 0 && ctx.m_Args && args && !args->empty())
                 {
-                    for (int i = 0; i < argCount; i++)
+                    for (int32_t i = 0; i < argCount; i++)
                     {
-                        argsStr += std::to_string(ctx.m_Args[i].Int);
-                        if (i != argCount - 1)
+                        auto type = (i < args->size()) ? (*args)[i] : scrDbgShared::NativesBin::NativeTypes::NONE;
+                        argsStr += FormatNativeTypes(ctx.m_Args[i], type);
+
+                        if (i < argCount - 1)
                             argsStr += ", ";
                     }
                 }
+            }
 
-                std::string retStr = "";
-                if (retCount > 0 && ctx.m_ReturnValue)
+            (*handler)(&ctx);
+
+            if (shouldLog)
+            {
+                auto rets = scrDbgShared::NativesBin::GetRetsByHash(hash);
+                if (retCount > 0 && ctx.m_ReturnValue && rets && !rets->empty())
                 {
-                    retStr += " -> (";
-                    for (int i = 0; i < retCount; i++)
+                    retsStr += " -> (";
+                    for (int32_t i = 0; i < retCount; i++)
                     {
-                        retStr += std::to_string(ctx.m_ReturnValue[i].Int);
-                        if (i != retCount - 1)
-                            retStr += ", ";
+                        auto type = (i < rets->size()) ? (*rets)[i] : scrDbgShared::NativesBin::NativeTypes::NONE;
+                        retsStr += FormatNativeTypes(ctx.m_ReturnValue[i], type);
+
+                        if (i < retCount - 1)
+                            retsStr += ", ";
                     }
-                    retStr += ")";
+                    retsStr += ")";
                 }
 
+                // now log the entire thing
                 if (!name.empty())
-                    scrDbgLib::ScriptLogger::Logf("[%s+0x%08X] %s(%s)%s", scriptThreadName, *context_ProgramCounter, name.data(), argsStr.c_str(), retStr.c_str());
+                    scrDbgLib::ScriptLogger::Logf("[%s+0x%08X] %s(%s)%s", scriptThreadName, *context_ProgramCounter, name.data(), argsStr.c_str(), retsStr.c_str());
                 else
-                    scrDbgLib::ScriptLogger::Logf("[%s+0x%08X] unk_0x%016llX(%s)%s", scriptThreadName, *context_ProgramCounter, hash, argsStr.c_str(), retStr.c_str());
+                    scrDbgLib::ScriptLogger::Logf("[%s+0x%08X] unk_0x%016llX(%s)%s", scriptThreadName, *context_ProgramCounter, hash, argsStr.c_str(), retsStr.c_str());
             }
 
             // In case WAIT, TERMINATE_THIS_THREAD, or TERMINATE_THREAD is called

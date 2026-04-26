@@ -24,28 +24,63 @@ namespace scrDbgShared
         memcpy(&count, ptr, sizeof(count));
         ptr += sizeof(count);
 
-        Names.reserve(count);
-        Map.reserve(count);
+        Names.clear();
+        Args.clear();
+        Rets.clear();
+
         for (uint32_t i = 0; i < count && ptr < end; ++i)
         {
-            if (end - ptr < 10)
+            if (end - ptr < sizeof(uint64_t) + sizeof(uint16_t))
                 break;
 
             uint64_t hash;
-            uint16_t len;
+            uint16_t nameLen;
             memcpy(&hash, ptr, sizeof(hash));
             ptr += sizeof(hash);
-            memcpy(&len, ptr, sizeof(len));
-            ptr += sizeof(len);
+            memcpy(&nameLen, ptr, sizeof(nameLen));
+            ptr += sizeof(nameLen);
 
-            if (end - ptr < len)
+            if (end - ptr < nameLen)
                 break;
 
-            std::string name(ptr, len);
-            ptr += len;
+            std::string name(ptr, nameLen);
+            ptr += nameLen;
 
-            Names.push_back(std::move(name));
-            Map.emplace(hash, std::string_view(Names.back()));
+            if (end - ptr < sizeof(uint16_t))
+                break;
+            uint16_t argCount;
+            memcpy(&argCount, ptr, sizeof(argCount));
+            ptr += sizeof(argCount);
+
+            std::vector<NativeTypes> args;
+            args.reserve(argCount);
+            for (uint16_t j = 0; j < argCount && ptr < end; ++j)
+            {
+                if (end - ptr < 1)
+                    break;
+                args.push_back(static_cast<NativeTypes>(*ptr));
+                ++ptr;
+            }
+
+            if (end - ptr < sizeof(uint16_t))
+                break;
+            uint16_t retCount;
+            memcpy(&retCount, ptr, sizeof(retCount));
+            ptr += sizeof(retCount);
+
+            std::vector<NativeTypes> rets;
+            rets.reserve(retCount);
+            for (uint16_t j = 0; j < retCount && ptr < end; ++j)
+            {
+                if (end - ptr < 1)
+                    break;
+                rets.push_back(static_cast<NativeTypes>(*ptr));
+                ++ptr;
+            }
+
+            Names.emplace(hash, std::move(name));
+            Args.emplace(hash, std::move(args));
+            Rets.emplace(hash, std::move(rets));
         }
 
         return true;
