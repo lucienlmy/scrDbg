@@ -12,6 +12,8 @@ class QPushButton;
 
 namespace scrDbgApp
 {
+    class ScriptNameComboBox;
+
     class NativeCommandsWidget : public QWidget
     {
         Q_OBJECT
@@ -42,7 +44,7 @@ namespace scrDbgApp
         QLineEdit* m_SearchEdit;
         QListWidget* m_ResultsList;
         QLabel* m_SelectedNativeLabel;
-        QLineEdit* m_ScriptNameEdit;
+        ScriptNameComboBox* m_ScriptNameEdit;
         QFormLayout* m_ArgsLayout;
         QFormLayout* m_ReturnsLayout;
         QFormLayout* m_OutValuesLayout;

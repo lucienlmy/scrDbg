@@ -13,8 +13,8 @@ namespace scrDbgApp
     // IDA-style pseudocode view for one script, shown next to the disassembly
     // Tab: jump to the disassembly at the instruction under the cursor
     // Double click on a function name: decompile that function in place
-    // Esc: back (previous function, cursor and scroll position)
-    // Ctrl+Enter: forward
+    // Esc or mouse back button: back (previous function, cursor and scroll position)
+    // Ctrl+Enter or mouse forward button: forward
     // F2: toggle a breakpoint on the current line
     // F5: re-decompile (usually for newly observed indirect-call targets)
     class PseudocodeView : public QWidget

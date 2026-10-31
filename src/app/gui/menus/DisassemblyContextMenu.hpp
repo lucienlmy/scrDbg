@@ -13,6 +13,10 @@ namespace scrDbgApp
     public:
         DisassemblyContextMenu(const QModelIndex& index, Disassembler* disassembler, uint32_t scriptHash, QWidget* parent = nullptr);
 
+        // also reached with shortcuts in the disassembly
+        void OnGeneratePattern(const QModelIndex& index);
+        void OnViewXrefsDialog(const QModelIndex& index);
+
     signals:
         void JumpToAddressRequested(uint32_t address);
         void DecompileRequested(uint32_t address);
@@ -23,8 +27,6 @@ namespace scrDbgApp
         void OnCopy(const QModelIndex& index);
         void OnNopInstruction(const QModelIndex& index);
         void OnCustomPatch(const QModelIndex& index);
-        void OnGeneratePattern(const QModelIndex& index);
-        void OnViewXrefsDialog(const QModelIndex& index);
         void OnJumpToInstructionAddress(const QModelIndex& index);
         void OnSetBreakpoint(const QModelIndex& index, bool set);
         void OnDecompileFunction(const QModelIndex& index);

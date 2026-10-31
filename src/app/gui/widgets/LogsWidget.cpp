@@ -1,4 +1,5 @@
 #include "LogsWidget.hpp"
+#include "ScriptNameComboBox.hpp"
 #include "pipe/PipeCommands.hpp"
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -23,15 +24,15 @@ namespace scrDbgApp
     {
         m_CurrentScript = new QLabel("Current Script: ALL", this);
 
-        auto scriptInput = new QLineEdit(this);
-        scriptInput->setFixedWidth(200);
+        auto scriptInput = new ScriptNameComboBox(this);
+        scriptInput->setFixedWidth(g_Game->GetType() == GameType::RDR2 ? 320 : 200);
         scriptInput->setEnabled(false);
-        scriptInput->setPlaceholderText("Enter script name to filter by");
+        scriptInput->lineEdit()->setPlaceholderText("Script name to filter by");
 
         auto setScriptBtn = new QPushButton("Set Script", this);
         setScriptBtn->setFixedWidth(70);
         connect(setScriptBtn, &QPushButton::clicked, [this, scriptInput]() {
-            QString name = scriptInput->text().trimmed();
+            QString name = QString::fromStdString(scriptInput->GetScriptName());
             if (!name.isEmpty())
             {
                 uint32_t hash = JOAAT(name.toStdString().c_str());
@@ -48,7 +49,7 @@ namespace scrDbgApp
             {
                 PipeCommands::SetLoggerScript(0);
                 m_CurrentScript->setText("Current Script: ALL");
-                scriptInput->clear();
+                scriptInput->clearEditText();
                 scriptInput->setEnabled(false);
             }
             else

@@ -166,8 +166,12 @@ namespace scrDbgApp
         out << " * Game build: " << g_Game->GetGameBuild() << "\n";
         out << " * Functions: " << m_Functions.size() << "\n";
         out << " * Statics: " << program->GetStaticCount() << "\n";
-        out << " * Globals: " << program->GetGlobalCount() << "\n";
-        out << " * Natives: " << program->GetNativeCount() << "\n";
+        GameType type = g_Game->GetType();
+        bool isGta5 = type == GameType::GTA5_GEN8 || type == GameType::GTA5_GEN9;
+        if (isGta5 || type == GameType::RDR3)
+            out << " * Globals: " << program->GetGlobalCount() << "\n";
+        if (isGta5 || type == GameType::RDR2 || type == GameType::RDR3)
+            out << " * Natives: " << program->GetNativeCount() << "\n";
         out << " * Decompiled by scrDbg " << SCRDBG_FILE_VERSION << "\n";
         out << " */\n";
         return out.str();

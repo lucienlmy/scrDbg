@@ -13,6 +13,7 @@ class QTabWidget;
 namespace scrDbgApp
 {
     class DisassemblyModel;
+    class DisassemblyContextMenu;
     class PseudocodeView;
 
     class ScriptThreadsWidget : public QWidget
@@ -46,6 +47,7 @@ namespace scrDbgApp
         DisassemblyModel* GetDisassemblyModel() const;
         void ToggleDisassemblyBreakpoint(int row);
         void OnBreakpointsChanged();
+        std::unique_ptr<DisassemblyContextMenu> CreateDisassemblyMenu(const QModelIndex& index);
         bool ScrollToAddress(uint32_t address);
         void UpdateDisassemblyInfo(int row, bool includeDesc);
         void CleanupDisassembly();

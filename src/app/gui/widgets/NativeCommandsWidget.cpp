@@ -1,4 +1,5 @@
 #include "NativeCommandsWidget.hpp"
+#include "ScriptNameComboBox.hpp"
 #include "gui/dialogs/StructBuilderDialog.hpp"
 #include <QCheckBox>
 #include <QDoubleSpinBox>
@@ -38,8 +39,8 @@ namespace scrDbgApp
         auto callGroup = new QGroupBox("Call", this);
         auto callLayout = new QVBoxLayout(callGroup);
 
-        m_ScriptNameEdit = new QLineEdit(callGroup);
-        m_ScriptNameEdit->setPlaceholderText("Script name to call inside");
+        m_ScriptNameEdit = new ScriptNameComboBox(callGroup);
+        m_ScriptNameEdit->lineEdit()->setPlaceholderText("Script name to call inside");
         callLayout->addWidget(m_ScriptNameEdit);
 
         m_SelectedNativeLabel = new QLabel("No native selected", callGroup);
@@ -403,7 +404,7 @@ namespace scrDbgApp
         if (m_SelectedHash == 0)
             return;
 
-        QString scriptName = m_ScriptNameEdit->text().trimmed();
+        QString scriptName = QString::fromStdString(m_ScriptNameEdit->GetScriptName());
         if (scriptName.isEmpty())
         {
             QMessageBox::warning(this, "No Script Name", "No script name provided.");

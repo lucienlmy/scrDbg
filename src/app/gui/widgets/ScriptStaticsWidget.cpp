@@ -1,5 +1,6 @@
 #include "ScriptStaticsWidget.hpp"
 #include "BitfieldWidget.hpp"
+#include "ScriptNameComboBox.hpp"
 #include "gui/dialogs/EditValueDialog.hpp"
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -22,9 +23,7 @@ namespace scrDbgApp
         QFormLayout* formLayout = new QFormLayout();
         formLayout->setLabelAlignment(Qt::AlignRight);
 
-        m_ScriptName = new QLineEdit(this);
-        if (g_Game->GetType() == GameType::RDR2)
-            m_ScriptName->setPlaceholderText("full name (e.g. content/main)");
+        m_ScriptName = new ScriptNameComboBox(this);
         formLayout->addRow("Script Name", m_ScriptName);
 
         m_StaticIndex = new QSpinBox(this);
@@ -151,7 +150,7 @@ namespace scrDbgApp
 
             int size = m_StaticSizes[i]->value();
             if (size > 0)
-                base += (1 + (offset * size));
+                base += (g_Game->GetType() == GameType::RDR2 ? 2 : 1) * (1 + (offset * size));
             else
                 base += offset;
         }
@@ -161,7 +160,7 @@ namespace scrDbgApp
 
     void ScriptStaticsWidget::OnUpdateCurrentStaticValue()
     {
-        std::string name = m_ScriptName->text().toStdString();
+        std::string name = m_ScriptName->GetScriptName();
         uint32_t hash = JOAAT(name);
         auto thread = g_Game->GetThread(hash);
 
@@ -214,7 +213,7 @@ namespace scrDbgApp
 
     void ScriptStaticsWidget::OnEditValue()
     {
-        std::string name = m_ScriptName->text().toStdString();
+        std::string name = m_ScriptName->GetScriptName();
         auto hash = JOAAT(name);
         auto thread = g_Game->GetThread(hash);
 
@@ -241,7 +240,7 @@ namespace scrDbgApp
 
     void ScriptStaticsWidget::OnReset()
     {
-        m_ScriptName->clear();
+        m_ScriptName->clearEditText();
         m_StaticIndex->setValue(0);
         for (int i = 0; i < 5; i++)
         {

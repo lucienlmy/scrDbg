@@ -242,6 +242,19 @@ namespace scrDbgApp
         m_Disassembly->installEventFilter(this);
         m_Disassembly->viewport()->installEventFilter(this);
 
+        auto generatePattern = [this]() {
+            if (auto menu = CreateDisassemblyMenu(m_Disassembly->currentIndex()))
+                menu->OnGeneratePattern(m_Disassembly->currentIndex());
+        };
+        auto viewXrefs = [this]() {
+            if (auto menu = CreateDisassemblyMenu(m_Disassembly->currentIndex()))
+                menu->OnViewXrefsDialog(m_Disassembly->currentIndex());
+        };
+        auto patternShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_S), m_Disassembly, this, generatePattern, Qt::WidgetShortcut);
+        auto xrefsShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_X), m_Disassembly, this, viewXrefs, Qt::WidgetShortcut);
+        Q_UNUSED(patternShortcut);
+        Q_UNUSED(xrefsShortcut);
+
         QVBoxLayout* disasmLayout = new QVBoxLayout();
         disasmLayout->addWidget(m_Disassembly);
         disasmLayout->addWidget(m_DisassemblyInfo);
@@ -668,14 +681,23 @@ namespace scrDbgApp
         if (!index.isValid())
             return;
 
-        DisassemblyContextMenu menu(index, m_Disassembler.get(), GetCurrentScriptHash(), this);
-        connect(&menu, &DisassemblyContextMenu::JumpToAddressRequested, this, &ScriptThreadsWidget::OnJumpToAddressFromMenu);
-        connect(&menu, &DisassemblyContextMenu::DecompileRequested, this, &ScriptThreadsWidget::OnDecompileAt);
-        connect(&menu, &DisassemblyContextMenu::CodePatched, this, [this]() {
+        if (auto menu = CreateDisassemblyMenu(index))
+            menu->exec(m_Disassembly->viewport()->mapToGlobal(pos));
+    }
+
+    std::unique_ptr<DisassemblyContextMenu> ScriptThreadsWidget::CreateDisassemblyMenu(const QModelIndex& index)
+    {
+        if (!m_Disassembler || !index.isValid())
+            return nullptr;
+
+        auto menu = std::make_unique<DisassemblyContextMenu>(index, m_Disassembler.get(), GetCurrentScriptHash(), this);
+        connect(menu.get(), &DisassemblyContextMenu::JumpToAddressRequested, this, &ScriptThreadsWidget::OnJumpToAddressFromMenu);
+        connect(menu.get(), &DisassemblyContextMenu::DecompileRequested, this, &ScriptThreadsWidget::OnDecompileAt);
+        connect(menu.get(), &DisassemblyContextMenu::CodePatched, this, [this]() {
             m_Pseudocode->Invalidate();
         });
-        connect(&menu, &DisassemblyContextMenu::BreakpointToggled, this, &ScriptThreadsWidget::OnBreakpointsChanged);
-        menu.exec(m_Disassembly->viewport()->mapToGlobal(pos));
+        connect(menu.get(), &DisassemblyContextMenu::BreakpointToggled, this, &ScriptThreadsWidget::OnBreakpointsChanged);
+        return menu;
     }
 
     void ScriptThreadsWidget::OnJumpToAddressFromMenu(uint32_t address)
@@ -750,8 +772,9 @@ namespace scrDbgApp
             }
         }
 
-        // Tab in the disassembly opens the pseudocode at the selected instruction. we filter here because QWidget::event() would use tab for focus navigation.
-        if (watched == m_Disassembly && event->type() == QEvent::KeyPress && static_cast<QKeyEvent*>(event)->key() == Qt::Key_Tab)
+        // Tab or F5 in the disassembly opens the pseudocode at the selected instruction. we filter here because QWidget::event() would use tab for focus navigation.
+        int key = event->type() == QEvent::KeyPress ? static_cast<QKeyEvent*>(event)->key() : 0;
+        if (watched == m_Disassembly && (key == Qt::Key_Tab || key == Qt::Key_F5))
         {
             if (!m_Disassembler || !m_Pseudocode->HasScript())
                 return QWidget::eventFilter(watched, event);

@@ -12,6 +12,7 @@ class QTimer;
 
 namespace scrDbgApp
 {
+    class ScriptNameComboBox;
     class BitfieldWidget;
 
     class ScriptStaticsWidget : public QWidget
@@ -30,7 +31,7 @@ namespace scrDbgApp
         static bool IsStaticAddressValid(uint32_t script, int address);
         int ComputeStaticAddress();
 
-        QLineEdit* m_ScriptName;
+        ScriptNameComboBox* m_ScriptName;
         QSpinBox* m_StaticIndex;
         QVector<QSpinBox*> m_StaticOffsets;
         QVector<QSpinBox*> m_StaticSizes;

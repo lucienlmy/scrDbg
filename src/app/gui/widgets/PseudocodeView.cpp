@@ -847,6 +847,22 @@ namespace scrDbgApp
             }
         }
 
+        // mouse side buttons
+        if (watched == m_Editor->viewport() && event->type() == QEvent::MouseButtonPress)
+        {
+            auto button = static_cast<QMouseEvent*>(event)->button();
+            if (button == Qt::BackButton)
+            {
+                GoBack();
+                return true;
+            }
+            if (button == Qt::ForwardButton)
+            {
+                GoForward();
+                return true;
+            }
+        }
+
         if (watched == m_Editor->viewport() && event->type() == QEvent::MouseButtonDblClick && m_Current)
         {
             auto mouse = static_cast<QMouseEvent*>(event);
