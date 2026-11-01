@@ -36,6 +36,7 @@ namespace scrDbgApp
         int GetFunctionCount() const;
         FunctionInfo GetFunction(int index) const;
         virtual std::optional<FunctionInfo> GetFunctionForPc(uint32_t pc) const; // GTA 4 and MP3 needs to override it
+        uint32_t ResolveFunctionEntry(uint32_t pc) const;                        // The compiler pads an ENTER that would straddle a code page with NOPs or a J to the next page. This Follows that padding to the ENTER and returns pc unchanged if it doesn't lead to one.
         // GTA4 and MP3 override this cuz a function's body is emitted at its first call site (J over the body, body, CALL), so its range contains the bodies of the functions it calls first. Only the reachable instructions are its own.
         virtual std::vector<uint32_t> GetFunctionInstructions(const FunctionInfo& func) const;
         int GetInstructionCount() const;
@@ -97,6 +98,7 @@ namespace scrDbgApp
         };
 
         virtual void BuildFunction(uint32_t pc) = 0;
+        bool IsFunctionBoundary(uint32_t pc) const; // True if pc is the end of the code or an ENTER (possibly behind page padding)
         virtual std::string DecodeInstructionInternal(int index) const = 0;
 
         uint32_t m_Hash;

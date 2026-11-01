@@ -77,7 +77,7 @@ namespace scrDbgApp::Decomp
             return true;
         if (ReachedAddress(EndAddress))
             return true;
-        return !Statements.empty() && IsLeafOf<Break, Jump>(Statements.back());
+        return !Statements.empty() && IsLeafOf<Break, Jump, Continue>(Statements.back());
     }
 
     bool If::CanSkipBraces() const
@@ -122,7 +122,7 @@ namespace scrDbgApp::Decomp
     {
         if (ReachedAddress(EndAddress))
             return true;
-        return !Statements.empty() && IsLeafOf<Break, Jump>(Statements.back());
+        return !Statements.empty() && IsLeafOf<Break, Jump, Continue>(Statements.back());
     }
 
     void Else::Emit(CodeWriter& writer, int indent) const
@@ -146,7 +146,24 @@ namespace scrDbgApp::Decomp
 
     void While::Emit(CodeWriter& writer, int indent) const
     {
-        writer.Line(indent, "while (" + Condition->Render() + ")", HeaderAddresses);
+        if (!IsFor)
+        {
+            writer.Line(indent, "while (" + Condition->Render() + ")", HeaderAddresses);
+            EmitBlock(writer, indent, false);
+            return;
+        }
+
+        std::string step;
+        for (size_t i = 0; i < Step.size(); i++)
+        {
+            std::string text = Step[i]->Render();
+            size_t semicolon = text.rfind(';');
+            if (semicolon != std::string::npos)
+                text.erase(semicolon, 1);
+            step += (i ? ", " : "") + text;
+        }
+
+        writer.Line(indent, "for (; " + Condition->Render() + "; " + step + ")", HeaderAddresses);
         EmitBlock(writer, indent, false);
     }
 
@@ -191,7 +208,7 @@ namespace scrDbgApp::Decomp
         if (ReachedAddress(BreakAddress))
             return true;
 
-        if (!Statements.empty() && IsLeafOf<Break, Return, Jump>(Statements.back()))
+        if (!Statements.empty() && IsLeafOf<Break, Return, Jump, Continue>(Statements.back()))
             return true;
 
         if (Offset == EndIndex)

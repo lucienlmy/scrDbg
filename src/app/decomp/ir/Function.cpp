@@ -60,21 +60,16 @@ namespace scrDbgApp::Decomp
             if (m_Instructions[i].Op != IrOp::DUP)
                 continue;
 
+            // NOPs can sit anywhere in the sequence, the compiler pads instructions that would straddle a code page boundary
             size_t j = i + 1;
-            while (j < count && m_Instructions[j].Op == IrOp::NOP)
-                j++;
-
-            size_t firstNot = j;
-            while (j < count && m_Instructions[j].Op == IrOp::INOT)
+            while (j < count && (m_Instructions[j].Op == IrOp::NOP || m_Instructions[j].Op == IrOp::INOT))
                 j++;
 
             if (j >= count || (m_Instructions[j].Op != IrOp::JZ && m_Instructions[j].Op != IrOp::JNZ))
                 continue;
 
-            m_Instructions[i].Nop();
-            for (size_t k = firstNot; k < j; k++)
+            for (size_t k = i; k <= j; k++)
                 m_Instructions[k].Nop();
-            m_Instructions[j].Nop();
 
             i = j;
         }

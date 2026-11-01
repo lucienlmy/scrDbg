@@ -72,6 +72,8 @@ namespace scrDbgApp
     {
         EnsureFunctions();
 
+        address = m_Disassembler.ResolveFunctionEntry(address);
+
         auto it = std::lower_bound(m_Functions.begin(), m_Functions.end(), address, [](const std::unique_ptr<Function>& func, uint32_t value) {
             return func->GetStart() < value;
         });

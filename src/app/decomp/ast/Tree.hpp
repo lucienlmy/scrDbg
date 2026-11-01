@@ -136,6 +136,15 @@ namespace scrDbgApp::Decomp
 
         AstPtr Condition;
         uint32_t BreakAddress;
+
+        // for loop support
+        static constexpr uint32_t NO_CONTINUE = 0xFFFFFFFF;
+        uint32_t ContinueAddress = NO_CONTINUE;
+        int32_t StepStart = -1; // index in Statements of the latch's label
+        bool CanBeFor = true;   // cleared when something other than a continue needs the latch's label
+        std::vector<std::shared_ptr<Continue>> Continues;
+        std::vector<AstPtr> Step; // set when it's emitted as a for
+        bool IsFor = false;
     };
 
     // The loop's tail is a backward conditional jump to the first body instruction

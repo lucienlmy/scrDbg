@@ -1417,6 +1417,31 @@ namespace scrDbgApp::Decomp
         uint32_t m_Target;
     };
 
+    // rendered as a goto if the loop can't be written as a for
+    class Continue : public AstToken
+    {
+    public:
+        explicit Continue(uint32_t target)
+            : m_Target(target)
+        {
+        }
+
+        bool IsStatement() const override
+        {
+            return true;
+        }
+
+        std::string ToString() const override
+        {
+            return AsGoto ? "goto " + FormatLabel(m_Target) + ";" : "continue;";
+        }
+
+        bool AsGoto = true; // decided once the loop is fully decoded
+
+    private:
+        uint32_t m_Target;
+    };
+
     class ConditionalJump : public AstToken
     {
     public:

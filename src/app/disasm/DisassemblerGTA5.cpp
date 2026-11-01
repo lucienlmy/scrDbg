@@ -365,10 +365,9 @@ namespace scrDbgApp
             if (op == static_cast<uint8_t>(OpcodesGTA5::LEAVE))
             {
                 uint32_t next = pos + size;
-                uint8_t nextOp = (next < m_Code.size()) ? GetU8(next) : 0xFF;
 
-                // If next op is ENTER, this is the last LEAVE of the function
-                if (nextOp == static_cast<uint8_t>(OpcodesGTA5::ENTER) || next >= m_Code.size())
+                // If next op is ENTER (or page padding before one), this is the last LEAVE of the function
+                if (IsFunctionBoundary(next))
                 {
                     lastLeave = pos;
                     retCount = GetU8(pos + 2);
@@ -442,7 +441,7 @@ namespace scrDbgApp
                 {
                     std::snprintf(buf, sizeof(buf), "0x%X", val);
                     result += buf;
-                    if (auto func = GetFunctionForPc(val))
+                    if (auto func = GetFunctionForPc(ResolveFunctionEntry(val)))
                     {
                         if (!func->Name.empty())
                         {

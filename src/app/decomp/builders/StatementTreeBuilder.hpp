@@ -18,6 +18,8 @@ namespace scrDbgApp::Decomp
         void HandleConditionalJump(Tree* tree, std::vector<Tree*>& treeStack, const Instruction& ins);
         void HandleSwitch(Tree& tree);
         void TryOptimizeTree(Tree& tree);
+        void FindLatch(While& loop, int32_t bodyStart, int32_t backJumpIndex);
+        void FinishLoop(While& loop);
         void FindDoWhileLoops();
         bool EnterDoWhile(Tree*& tree, std::vector<Tree*>& treeStack);
 
@@ -30,5 +32,6 @@ namespace scrDbgApp::Decomp
         size_t m_MaxSteps;
 
         std::unordered_map<int32_t, std::vector<int32_t>> m_DoWhileTails; // Instruction index of a do-while's first body instruction
+        std::unordered_set<uint32_t> m_GotoTargets;                       // Forward goto targets that still need a label
     };
 }

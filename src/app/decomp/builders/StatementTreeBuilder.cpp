@@ -3,6 +3,37 @@
 
 namespace scrDbgApp::Decomp
 {
+    // An else body runs from its if's end to the jump target, so it has to fit inside every block enclosing the if. Nested ifs that share an end, with the innermost jumping past it are a goto, not an else.
+    static bool ElseFitsInEnclosingBlocks(const Tree* ifTree, uint32_t elseEnd)
+    {
+        const auto& instructions = ifTree->Func.GetInstructions();
+
+        for (const Tree* t = ifTree->Parent; t; t = t->Parent)
+        {
+            uint32_t end = UINT32_MAX;
+
+            if (auto elseTree = dynamic_cast<const Else*>(t))
+            {
+                end = elseTree->EndAddress;
+                if (t->Parent) // the if owning this else ends where the else starts, it doesn't bound it
+                    t = t->Parent;
+            }
+            else if (auto outerIf = dynamic_cast<const If*>(t))
+                end = outerIf->EndAddress;
+            else if (auto whileTree = dynamic_cast<const While*>(t))
+                end = whileTree->BreakAddress;
+            else if (auto doWhileTree = dynamic_cast<const DoWhile*>(t))
+                end = doWhileTree->BreakAddress;
+            else if (auto caseTree = dynamic_cast<const Case*>(t))
+                end = (caseTree->EndIndex >= 0 && caseTree->EndIndex < static_cast<int32_t>(instructions.size())) ? instructions[caseTree->EndIndex].Offset : caseTree->BreakAddress;
+
+            if (elseEnd > end)
+                return false;
+        }
+
+        return true;
+    }
+
     StatementTreeBuilder::StatementTreeBuilder(Function& func, ScriptContext& context)
         : m_Func(func),
           m_Evaluator(func, context, m_Stack),
@@ -98,6 +129,19 @@ namespace scrDbgApp::Decomp
 
             const Instruction& ins = instructions[tree->Offset];
 
+            // gotos are only emitted forward, so their label goes in front of the target when decoding reaches it
+            if (m_GotoTargets.erase(ins.Offset))
+            {
+                tree->Statements.emplace_back(MakeAst<Label>(ins.Offset));
+
+                if (auto loop = dynamic_cast<While*>(tree); loop && loop->ContinueAddress == ins.Offset)
+                {
+                    loop->StepStart = static_cast<int32_t>(tree->Statements.size()) - 1;
+                    if (m_Stack.GetSlotCount() != 0)
+                        loop->CanBeFor = false;
+                }
+            }
+
             emitted.clear();
             if (m_Evaluator.Evaluate(ins, emitted))
             {
@@ -124,6 +168,9 @@ namespace scrDbgApp::Decomp
 
             while (tree->IsTreeEnd())
             {
+                if (auto loop = dynamic_cast<While*>(tree))
+                    FinishLoop(*loop);
+
                 treeStack.pop_back();
                 if (treeStack.empty())
                     return;
@@ -157,7 +204,7 @@ namespace scrDbgApp::Decomp
 
         // An if-body ending in a forward jump over the code that directly follows it means that code is an else block ending at the jump target
         auto ifTree = dynamic_cast<If*>(tree);
-        if (ifTree && tree->Offset + 1 < count && instructions[tree->Offset + 1].Offset == ifTree->EndAddress && target > ins.Offset && target != instructions[tree->Offset + 1].Offset)
+        if (ifTree && tree->Offset + 1 < count && instructions[tree->Offset + 1].Offset == ifTree->EndAddress && target > ins.Offset && target != instructions[tree->Offset + 1].Offset && ElseFitsInEnclosingBlocks(ifTree, target))
         {
             int32_t resumeAt = IndexOf(target, "Else end");
 
@@ -181,9 +228,38 @@ namespace scrDbgApp::Decomp
             if (next.Op == IrOp::NOP || (next.Op == IrOp::J && next.IsNullJump()))
                 continue;
 
+            // A jump to the latch of the innermost loop is a continue. Switches don't matter, continue goes through them
+            While* innermost = nullptr;
+            for (Tree* t = tree; t; t = t->Parent)
+            {
+                if (dynamic_cast<DoWhile*>(t))
+                    break;
+                if ((innermost = dynamic_cast<While*>(t)))
+                    break;
+            }
+
+            if (innermost && innermost->ContinueAddress == target)
+            {
+                auto continueStatement = std::make_shared<Continue>(target);
+                continueStatement->Address = ins.Offset;
+                innermost->Continues.push_back(continueStatement);
+                tree->Statements.emplace_back(std::move(continueStatement));
+                m_GotoTargets.insert(target);
+                return;
+            }
+
+            // A goto to an outer loop's latch needs the label there, so that loop stays a while
+            for (Tree* t = tree; t; t = t->Parent)
+            {
+                if (auto loop = dynamic_cast<While*>(t); loop && loop->ContinueAddress == target)
+                    loop->CanBeFor = false;
+            }
+
             auto jump = MakeAst<Jump>(target);
             jump->Address = ins.Offset;
             tree->Statements.emplace_back(std::move(jump));
+            if (target > ins.Offset)
+                m_GotoTargets.insert(target);
             return;
         }
     }
@@ -242,6 +318,7 @@ namespace scrDbgApp::Decomp
 
                 auto whileTree = std::make_shared<While>(m_Func, tree, tree->Offset + 1, condition, target);
                 whileTree->HeaderAddresses = {ins.Offset, beforeTarget.Offset};
+                FindLatch(*whileTree, tree->Offset + 1, targetIndex - 1);
                 treeStack.push_back(whileTree.get());
                 tree->Statements.emplace_back(std::move(whileTree));
                 tree->Offset = targetIndex;
@@ -297,6 +374,7 @@ namespace scrDbgApp::Decomp
 
         uint32_t breakLoc = defaultLoc;
         bool useDefault = true;
+        bool foundBreakJump = false;
 
         for (size_t i = 0; i <= sorted.size(); i++)
         {
@@ -320,7 +398,11 @@ namespace scrDbgApp::Decomp
             }
 
             breakLoc = candidate.Target;
+            foundBreakJump = true;
         }
+
+        if (useDefault && !foundBreakJump && (sorted.empty() || sorted.back() < defaultLoc))
+            useDefault = false;
 
         if (useDefault)
         {
@@ -333,6 +415,9 @@ namespace scrDbgApp::Decomp
         int32_t breakIndex = IndexOf(breakLoc, "Switch break target");
         if (breakIndex <= tree.Offset)
             throw std::runtime_error("Switch break target goes backwards");
+
+        // Cases go in address order. A case ends where the next one in the list starts (Case::EndIndex), which is only right if that is the next one in the code, and otherwise a case falling through into another runs past it and decodes it a second time.
+        std::sort(order.begin(), order.end());
 
         std::vector<std::pair<uint32_t, std::vector<AstPtr>>> cases;
         cases.reserve(order.size());
@@ -347,6 +432,71 @@ namespace scrDbgApp::Decomp
 
         tree.Statements.emplace_back(std::move(switchTree));
         tree.Offset = breakIndex - 1;
+    }
+
+    void StatementTreeBuilder::FindLatch(While& loop, int32_t bodyStart, int32_t backJumpIndex)
+    {
+        const auto& instructions = m_Func.GetInstructions();
+
+        int32_t straightStart = backJumpIndex;
+        while (straightStart - 1 >= bodyStart)
+        {
+            const Instruction& prev = instructions[straightStart - 1];
+            if ((prev.Op >= IrOp::J && prev.Op <= IrOp::ILE_JZ) || prev.Op == IrOp::SWITCH || prev.Op == IrOp::LEAVE)
+                break;
+            straightStart--;
+        }
+
+        const uint32_t low = instructions[straightStart].Offset;
+        const uint32_t high = instructions[backJumpIndex].Offset;
+
+        uint32_t latch = While::NO_CONTINUE;
+        for (int32_t i = bodyStart; i < straightStart; i++)
+        {
+            const Instruction& jump = instructions[i];
+            if (jump.Op != IrOp::J || jump.Target < low || jump.Target > high)
+                continue;
+
+            if (latch != While::NO_CONTINUE && latch != jump.Target)
+                return;
+            latch = jump.Target;
+        }
+
+        loop.ContinueAddress = latch;
+    }
+
+    void StatementTreeBuilder::FinishLoop(While& loop)
+    {
+        if (loop.Continues.empty())
+            return;
+
+        auto isStepStatement = [](const StatementItem& item) {
+            if (!std::holds_alternative<AstPtr>(item))
+                return false;
+
+            auto token = std::get<AstPtr>(item).get();
+            if (!token->IsStatement() || dynamic_cast<Return*>(token) || dynamic_cast<Break*>(token) || dynamic_cast<Jump*>(token) || dynamic_cast<Continue*>(token) || dynamic_cast<Label*>(token))
+                return false;
+
+            std::string text = token->ToString();
+            return !text.empty() && text.back() == ';';
+        };
+
+        bool ok = loop.CanBeFor && loop.StepStart >= 0;
+        for (size_t i = loop.StepStart + 1; ok && i < loop.Statements.size(); i++)
+            ok = isStepStatement(loop.Statements[i]);
+
+        if (!ok)
+            return; // continues stay gotos and the label stays
+
+        for (size_t i = loop.StepStart + 1; i < loop.Statements.size(); i++)
+            loop.Step.push_back(std::get<AstPtr>(loop.Statements[i]));
+
+        loop.Statements.resize(loop.StepStart); // drops the label too
+        loop.IsFor = !loop.Step.empty();        // an empty latch is a plain while continue
+
+        for (auto& continueStatement : loop.Continues)
+            continueStatement->AsGoto = false;
     }
 
     // if (a) {...} else { if (b) {...} else {...} } -> if (a) {...} else if (b) {...} else {...}

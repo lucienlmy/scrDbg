@@ -56,6 +56,57 @@ namespace scrDbgApp
         return m_Functions[index];
     }
 
+    uint32_t Disassembler::ResolveFunctionEntry(uint32_t pc) const
+    {
+        const uint16_t nop = GetOpcodeNumber(Opcodes::NOP);
+        const uint16_t jmp = GetOpcodeNumber(Opcodes::J);
+        const uint16_t enter = GetOpcodeNumber(Opcodes::ENTER);
+
+        uint32_t cur = pc;
+        for (int i = 0; i < 16 && cur < m_Code.size(); i++)
+        {
+            uint8_t op = GetU8(cur);
+
+            if (op == enter)
+                return cur;
+
+            if (op == nop)
+            {
+                cur += GetInstructionSize(cur);
+            }
+            else if (op == jmp)
+            {
+                // Only a jump over filler is padding. A jump over code can be the end of an if/else whose else runs to the end of the function, landing on the next ENTER
+                uint32_t next = cur + GetInstructionSize(cur);
+                uint32_t target = GetJumpTarget(cur);
+                if (target < next)
+                    break;
+
+                for (uint32_t filler = next; filler < target; filler++)
+                {
+                    if (GetU8(filler) != nop)
+                        return pc;
+                }
+
+                cur = target;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return pc;
+    }
+
+    bool Disassembler::IsFunctionBoundary(uint32_t pc) const
+    {
+        if (pc >= m_Code.size())
+            return true;
+
+        return GetU8(ResolveFunctionEntry(pc)) == GetOpcodeNumber(Opcodes::ENTER);
+    }
+
     std::optional<Disassembler::FunctionInfo> Disassembler::GetFunctionForPc(uint32_t pc) const
     {
         auto it = std::upper_bound(m_Functions.begin(), m_Functions.end(), pc, [](uint32_t value, const FunctionInfo& func) {
