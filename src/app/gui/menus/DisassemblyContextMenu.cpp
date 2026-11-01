@@ -1,4 +1,5 @@
 #include "DisassemblyContextMenu.hpp"
+#include "gui/dialogs/BreakpointsDialog.hpp"
 #include "gui/dialogs/ResultsDialog.hpp"
 #include "gui/models/DisassemblyModel.hpp"
 #include "pipe/PipeCommands.hpp"
@@ -203,6 +204,8 @@ namespace scrDbgApp
     {
         uint32_t pc = m_Disassembler->GetInstruction(index.row());
         PipeCommands::SetBreakpoint(m_ScriptHash, pc, set);
+        if (set)
+            BreakpointsDialog::InsertBpScName(m_ScriptHash, m_Disassembler->GetProgram()->GetName());
         emit BreakpointToggled();
     }
 

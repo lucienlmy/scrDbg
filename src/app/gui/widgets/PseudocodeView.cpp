@@ -1,5 +1,6 @@
 #include "PseudocodeView.hpp"
 #include "decomp/Decompiler.hpp"
+#include "gui/dialogs/BreakpointsDialog.hpp"
 #include "gui/style/BreakpointStyle.hpp"
 #include "pipe/PipeCommands.hpp"
 #include <QApplication>
@@ -633,6 +634,7 @@ namespace scrDbgApp
         else if (auto address = m_Current->GetLineAddress(line))
         {
             PipeCommands::SetBreakpoint(m_ScriptHash, *address, true);
+            BreakpointsDialog::InsertBpScName(m_ScriptHash, m_Disassembler->GetProgram()->GetName());
         }
         else
         {

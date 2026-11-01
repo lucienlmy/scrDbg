@@ -17,8 +17,6 @@
 
 namespace scrDbgApp
 {
-    static std::unordered_map<uint32_t, std::string> g_KnownNames;
-
     BreakpointsDialog::BreakpointsDialog(bool pauseGame, bool canChangePauseGame, QWidget* parent)
         : QDialog(parent)
     {
@@ -109,7 +107,7 @@ namespace scrDbgApp
             m_Table->insertRow(row);
 
             QString name;
-            if (auto known = g_KnownNames.find(script); known != g_KnownNames.end())
+            if (auto known = m_BpScNames.find(script); known != m_BpScNames.end())
                 name = QString::fromStdString(known->second);
             else
                 name = "<unknown>";
@@ -154,11 +152,8 @@ namespace scrDbgApp
             return;
         }
 
-        std::string name = m_Script->GetScriptName();
-        std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-        g_KnownNames[hash] = name;
-
         PipeCommands::SetBreakpoint(hash, pc, true);
+        InsertBpScName(hash, m_Script->GetScriptName());
         RefreshBreakpoints();
         m_Script->clear();
         m_Pc->clear();

@@ -19,6 +19,12 @@ namespace scrDbgApp
     public:
         BreakpointsDialog(bool pauseGame, bool canChangePauseGame, QWidget* parent = nullptr);
 
+        static void InsertBpScName(uint32_t hash, std::string name)
+        {
+            std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+            m_BpScNames[hash] = std::move(name);
+        }
+
     signals:
         void BreakpointDoubleClicked(uint32_t script, uint32_t pc);
         void PauseGameChanged(bool pause);
@@ -40,5 +46,7 @@ namespace scrDbgApp
         QLineEdit* m_Pc;
         QLabel* m_ResolvedHash;
         QPushButton* m_Add;
+
+        static inline std::unordered_map<uint32_t, std::string> m_BpScNames;
     };
 }

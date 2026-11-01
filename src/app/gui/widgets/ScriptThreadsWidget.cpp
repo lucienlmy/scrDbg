@@ -741,7 +741,10 @@ namespace scrDbgApp
 
         const uint32_t hash = GetCurrentScriptHash();
         const uint32_t pc = m_Disassembler->GetInstruction(row);
-        PipeCommands::SetBreakpoint(hash, pc, !PipeCommands::BreakpointExists(hash, pc));
+        const bool set = !PipeCommands::BreakpointExists(hash, pc);
+        PipeCommands::SetBreakpoint(hash, pc, set);
+        if (set)
+            BreakpointsDialog::InsertBpScName(hash, m_Disassembler->GetProgram()->GetName());
         OnBreakpointsChanged();
     }
 
