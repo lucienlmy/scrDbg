@@ -46,7 +46,7 @@ namespace scrDbgApp
                 {QRegularExpression(R"(\b(?:Global|Static)_\d+\b)"), format("#A0522D")},
                 {QRegularExpression(R"(\b(?:Local|Arg|FrameSlot)_\d+\b)"), format("#001080")},
                 {QRegularExpression(R"(\bf_(?:\d+)?\b)"), format("#267F99")},
-                {QRegularExpression(R"(\b(?:var|void|if|else|while|switch|case|default|break|return|goto|joaat)\b)"), format("#0000FF", true)},
+                {QRegularExpression(R"(\b(?:var|void|if|else|while|for|switch|case|default|break|continue|return|goto|joaat)\b)"), format("#0000FF", true)},
                 {QRegularExpression(R"((?<![\w.])\d+(?:\.\d+)?(?:e[+-]?\d+)?f?\b)"), format("#098658")},
                 {QRegularExpression(R"(^loc_[0-9A-F]+:)"), format("#AF00DB", true)},
                 {QRegularExpression(R"(\bloc_[0-9A-F]+\b)"), format("#AF00DB")},
