@@ -5,7 +5,7 @@
 # scrDbg
 
 scrDbg is a script debugger for RAGE games.
-It allows you to inspect, manipulate, and debug game scripts in real-time.
+It allows you to inspect, manipulate, debug, disassemble, and even decompile game scripts in real-time.
 
 ## Supported Games
 
@@ -20,7 +20,7 @@ It allows you to inspect, manipulate, and debug game scripts in real-time.
 - View running scripts
 - Pause scripts
 - Kill scripts
-- Export disassembly, strings, statics, globals, and natives
+- Export disassembly, decompiled C pseudocode, strings, statics, globals, and natives
 - Exception handling
 - View functions
 - View stack
@@ -34,6 +34,11 @@ It allows you to inspect, manipulate, and debug game scripts in real-time.
   - Generate patterns
   - View xrefs
   - Set breakpoints
+- Script decompiler
+  - Pseudocode view alongside the disassembly
+  - Follow calls with back/forward navigation
+  - Resolve indirect calls from runtime-observed targets
+  - Set breakpoints and highlight the executing line in pseudocode
 - Dynamic native invoker
   - Search natives by name and invoke them dynamically
   - Specify the script to execute the native in
